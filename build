@@ -1,0 +1,43 @@
+#!/bin/bash
+
+ARG_DOMAIN=${DOMAIN-'dosk.win'}
+ARG_SUBJECT=${SUBJECT-'/C=CN/ST=Beijing/L=Beijing/O=SpringHack/OU=Technology/CN=SpringHack Client Auth/emailAddress=springhack@live.cn'}
+
+ca() {
+  openssl genrsa -out ca.key 4096
+  openssl req -x509 -new -nodes -key ca.key -sha256 -days 36500 -out ca.crt -subj '/CN=SpringHack Certificate Authority'
+}
+
+server() {
+  openssl genrsa -out server.key 4096
+  openssl req -new -key server.key -config ../ssl.cfg -out server.csr
+  openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 366 -sha256 -extfile ../ssl.cfg -extensions req_ext
+}
+
+client() {
+  openssl genrsa -out client.key 4096
+  openssl req -new -out client.csr -key client.key -subj "${ARG_SUBJECT}"
+  openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA ca.crt -CAkey ca.key -CAcreateserial -days 36500
+  openssl pkcs12 -export -clcerts -in client.crt -inkey client.key -out client.p12 -passin pass:sksks -passout pass:sksks
+}
+
+
+cd "$(dirname "$0")"
+mkdir -p certs
+cd certs
+case $1 in
+  ca)
+    ca
+    ;;
+  server)
+    server
+    ;;
+  client)
+    client
+    ;;
+  *)
+    ca
+    server
+    client
+    ;;
+esac
